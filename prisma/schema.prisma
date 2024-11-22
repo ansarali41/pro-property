@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  OWNER
+  TENANT
+  MAINTENANCE
+}
+
+enum PropertyType {
+  RENTAL
+  SALE
+  LEASE
+  SHORT_STAY
+}
+
+enum SubscriptionTier {
+  BASIC
+  PRO
+  PREMIUM
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  password      String
+  role          UserRole
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Role-specific relations
+  ownedProperties    Property[]  @relation("PropertyOwner")
+  rentedProperties   Property[]  @relation("PropertyTenant")
+  maintenanceOrders  WorkOrder[] @relation("MaintenanceStaff")
+  
+  // Subscription (for owners)
+  subscription       Subscription?
+}
+
+model Property {
+  id          String        @id @default(cuid())
+  title       String
+  description String
+  type        PropertyType
+  price       Float
+  address     String
+  size        Float
+  bedrooms    Int
+  bathrooms   Int
+  amenities   String
+  images      String
+  published   Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  ownerId     String
+  owner       User          @relation("PropertyOwner", fields: [ownerId], references: [id])
+  tenantId    String?
+  tenant      User?         @relation("PropertyTenant", fields: [tenantId], references: [id])
+  workOrders  WorkOrder[]
+}
+
+model WorkOrder {
+  id          String    @id @default(cuid())
+  title       String
+  description String
+  status      String
+  priority    String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  propertyId  String
+  property    Property  @relation(fields: [propertyId], references: [id])
+  staffId     String
+  staff       User      @relation("MaintenanceStaff", fields: [staffId], references: [id])
+}
+
+model Subscription {
+  id        String           @id @default(cuid())
+  tier      SubscriptionTier
+  startDate DateTime         @default(now())
+  endDate   DateTime
+  active    Boolean          @default(true)
+  stripeId  String?
+
+  // Relations
+  userId    String           @unique
+  user      User             @relation(fields: [userId], references: [id])
+}
